@@ -12,6 +12,7 @@ if 2 > len(sys.argv):
 
 verbose = False
 forceUpdate = False
+showASG = False
 argv = sys.argv
 if '-v' in sys.argv:
     verbose = True
@@ -20,6 +21,10 @@ if '-v' in sys.argv:
 if '-u' in sys.argv:
     forceUpdate = True
     argv = [ arg for arg in argv if '-u' != arg ]
+
+if '-g' in sys.argv:
+    showASG = True
+    argv = [ arg for arg in argv if '-g' != arg ]
 
 name = argv[1]
 filename = '/%s/Instances.json' % expanduser("~")
@@ -31,17 +36,23 @@ else:
     os.system('aws ec2 describe-instances > %s' % filename)
     data = json.load(open(filename))
 
+def nameTagFilter(tag):
+    return (('Name' == tag['Key']) or ('aws:cloudformation:stack-name' == tag['Key'])) and ((name == tag['Value']) or (fuzzy and name in tag['Value']))
+
+def groupTagFilter(tag):
+    return "aws:autoscaling:groupName" == tag['Key']
 
 fuzzy=True # always set to true. Leaving it as a var just in case I want to configure it
 for resv in data['Reservations']:
     for inst in resv['Instances']:
         if 'running' == inst['State']['Name']:
-            for tag in inst['Tags']:
+            nameTags = [ tag['Value'] for tag in inst['Tags'] if nameTagFilter(tag) ]
+            groupTags = [ tag['Value'] for tag in inst['Tags'] if groupTagFilter(tag) ]
+            groupName = groupTags[0] if showASG and len(groupTags) else ''
+            for nameTag in nameTags:
                 #print json.dumps(tag, indent=4, sort_keys=True)
-                if ('Name' == tag['Key']) or ('aws:cloudformation:stack-name' == tag['Key']):
-                    if ( name == tag['Value']) or ( fuzzy and name in tag['Value']):
-                        if verbose:
-                            print "%s\t%s\t%s\t%s\t%s" % (inst['PrivateIpAddress'], tag['Value'], inst['LaunchTime'], inst['InstanceId'], inst['ImageId'])
-                        else:
-                            print inst['PrivateIpAddress']
-                        break
+                if verbose:
+                    print "%s\t%s\t%s\t%s\t%s\t%s" % (inst['PrivateIpAddress'], nameTag, inst['LaunchTime'], inst['InstanceId'], inst['ImageId'], groupName)
+                else:
+                    print inst['PrivateIpAddress']
+                #break
