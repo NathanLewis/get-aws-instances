@@ -3,22 +3,34 @@
 import os
 import sys
 import json
+import time
+from os.path import expanduser
 
-if 1 > len(sys.argv):
-    print("Usage: getInst.py [-v] <Machine Name> <Json Filename>")
+if 2 > len(sys.argv):
+    print("Usage: getInstances [-v] [-u]  <Machine Name> [Json Filename]")
     exit(-1)
 
 verbose = False
+forceUpdate = False
 argv = sys.argv
 if '-v' in sys.argv:
     verbose = True
     argv = [ arg for arg in argv if '-v' != arg ]
 
+if '-u' in sys.argv:
+    forceUpdate = True
+    argv = [ arg for arg in argv if '-u' != arg ]
+
 name = argv[1]
+filename = '/%s/Instances.json' % expanduser("~")
 if 3 == len(argv):
     data = json.load(open(argv[2]))
+elif os.path.exists(filename) and ( os.stat(filename).st_mtime + 3600 > time.time() ) and (os.stat(filename).st_size > 0) and not forceUpdate:
+    print "%s size: %d" % (filename, os.stat(filename).st_size)
+    data = json.load(open(filename))
 else:
-    data = json.load(open('Instances.json'))
+    os.system('aws ec2 describe-instances > %s' % filename)
+    data = json.load(open(filename))
 
 
 found=False
