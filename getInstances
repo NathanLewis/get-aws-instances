@@ -26,14 +26,12 @@ filename = '/%s/Instances.json' % expanduser("~")
 if 3 == len(argv):
     data = json.load(open(argv[2]))
 elif os.path.exists(filename) and ( os.stat(filename).st_mtime + 3600 > time.time() ) and (os.stat(filename).st_size > 0) and not forceUpdate:
-    print "%s size: %d" % (filename, os.stat(filename).st_size)
     data = json.load(open(filename))
 else:
     os.system('aws ec2 describe-instances > %s' % filename)
     data = json.load(open(filename))
 
 
-found=False
 fuzzy=True # always set to true. Leaving it as a var just in case I want to configure it
 for resv in data['Reservations']:
     for inst in resv['Instances']:
@@ -42,13 +40,8 @@ for resv in data['Reservations']:
                 #print json.dumps(tag, indent=4, sort_keys=True)
                 if ('Name' == tag['Key']) or ('aws:cloudformation:stack-name' == tag['Key']):
                     if ( name == tag['Value']) or ( fuzzy and name in tag['Value']):
-                        found=True
                         if verbose:
                             print "%s\t%s\t%s\t%s\t%s" % (inst['PrivateIpAddress'], tag['Value'], inst['LaunchTime'], inst['InstanceId'], inst['ImageId'])
                         else:
                             print inst['PrivateIpAddress']
                         break
-                #else if ():
-            if found:
-                #print inst['PrivateIpAddress']
-                found=False
