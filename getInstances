@@ -13,6 +13,7 @@ if 2 > len(sys.argv):
 verbose = False
 forceUpdate = False
 showASG = False
+fuzzy=True # always set to true. Leaving it as a var just in case I want to configure it
 argv = sys.argv
 if '-v' in sys.argv:
     verbose = True
@@ -25,6 +26,10 @@ if '-u' in sys.argv:
 if '-g' in sys.argv:
     showASG = True
     argv = [ arg for arg in argv if '-g' != arg ]
+
+if '-i' in sys.argv:
+    byIP = True
+    argv = [ arg for arg in argv if '-i' != arg ]
 
 name = argv[1]
 filename = '/%s/Instances.json' % expanduser("~")
@@ -42,17 +47,30 @@ def nameTagFilter(tag):
 def groupTagFilter(tag):
     return "aws:autoscaling:groupName" == tag['Key']
 
-fuzzy=True # always set to true. Leaving it as a var just in case I want to configure it
-for resv in data['Reservations']:
-    for inst in resv['Instances']:
-        if 'running' == inst['State']['Name']:
-            nameTags = [ tag['Value'] for tag in inst['Tags'] if nameTagFilter(tag) ]
-            groupTags = [ tag['Value'] for tag in inst['Tags'] if groupTagFilter(tag) ]
-            groupName = groupTags[0] if showASG and len(groupTags) else ''
-            for nameTag in nameTags:
-                #print json.dumps(tag, indent=4, sort_keys=True)
-                if verbose:
-                    print "%s\t%s\t%s\t%s\t%s\t%s" % (inst['PrivateIpAddress'], nameTag, inst['LaunchTime'], inst['InstanceId'], inst['ImageId'], groupName)
-                else:
-                    print inst['PrivateIpAddress']
-                #break
+if byIP:
+    for resv in data['Reservations']:
+        for inst in resv['Instances']:
+            if 'running' == inst['State']['Name'] and name == inst['PrivateIpAddress']:
+                nameTags = [ tag['Value'] for tag in inst['Tags'] if (('Name' == tag['Key']) or ('aws:cloudformation:stack-name' == tag['Key'])) ]
+                groupTags = [ tag['Value'] for tag in inst['Tags'] if groupTagFilter(tag) ]
+                groupName = groupTags[0] if showASG and len(groupTags) else ''
+                for nameTag in nameTags:
+                    if verbose:
+                        print "%s\t%s\t%s\t%s\t%s\t%s" % (inst['PrivateIpAddress'], nameTag, inst['LaunchTime'], inst['InstanceId'], inst['ImageId'], groupName)
+                    else:
+                        print inst['PrivateIpAddress']
+
+else:
+    for resv in data['Reservations']:
+        for inst in resv['Instances']:
+            if 'running' == inst['State']['Name']:
+                nameTags = [ tag['Value'] for tag in inst['Tags'] if nameTagFilter(tag) ]
+                groupTags = [ tag['Value'] for tag in inst['Tags'] if groupTagFilter(tag) ]
+                groupName = groupTags[0] if showASG and len(groupTags) else ''
+                for nameTag in nameTags:
+                    #print json.dumps(tag, indent=4, sort_keys=True)
+                    if verbose:
+                        print "%s\t%s\t%s\t%s\t%s\t%s" % (inst['PrivateIpAddress'], nameTag, inst['LaunchTime'], inst['InstanceId'], inst['ImageId'], groupName)
+                    else:
+                        print inst['PrivateIpAddress']
+                    #break
